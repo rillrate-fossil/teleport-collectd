@@ -1,7 +1,9 @@
+use anyhow::Error;
 use collectd_plugin::{
     collectd_plugin, ConfigItem, Plugin, PluginCapabilities, PluginManager, PluginRegistration,
-    ValueList,
+    Value, ValueList, ValueReport,
 };
+use rayon::prelude::*;
 use rill::{
     pathfinder::{Pathfinder, Record},
     protocol::Path,
@@ -46,38 +48,50 @@ impl PluginManager for TeleportColelctd {
     }
 }
 
+impl TeleportColelctd {
+    fn write_value(&self, path: Path, report: &ValueReport) -> Result<(), Error> {
+        // Try to find an existent provider
+        {
+            let providers = self.providers.read().unwrap();
+            let provider = providers.find(&path).and_then(Record::get_link);
+            if let Some(provider) = provider {
+                if provider.is_active() {
+                    // TODO: Writed a value
+                }
+                return Ok(());
+            }
+        }
+        // Creating a new provider
+        {
+            let mut providers = self.providers.write().unwrap();
+            let provider = LogProvider::new(path.clone());
+            // It can't be active here, since it hadn't existed in the provider.
+            providers.dig(path).set_link(provider);
+        }
+        Ok(())
+    }
+}
+
 impl Plugin for TeleportColelctd {
     fn capabilities(&self) -> PluginCapabilities {
         PluginCapabilities::WRITE
     }
 
     fn write_values(&self, list: ValueList<'_>) -> Result<(), Box<dyn error::Error>> {
-        // TODO: Use `par_iter` here
-        for value in &list.values {
-            let host = EntryId::from(list.host);
-            let plugin = EntryId::from(list.plugin);
-            let name = EntryId::from(value.name);
+        let host = EntryId::from(list.host);
+        let plugin = EntryId::from(list.plugin);
+        let err = list.values.par_iter().find_map_last(move |report| {
+            let host = host.clone();
+            let plugin = plugin.clone();
+            let name = EntryId::from(report.name);
             let path = Path::from(vec![host, plugin, name]);
-            // Try to find an existent provider
-            {
-                let providers = self.providers.read().unwrap();
-                let provider = providers.find(&path).and_then(Record::get_link);
-                if let Some(provider) = provider {
-                    if provider.is_active() {
-                        // TODO: Writed a value
-                    }
-                    continue;
-                }
-            }
-            // Creating a new provider
-            {
-                let mut providers = self.providers.write().unwrap();
-                let provider = LogProvider::new(path.clone());
-                // It can't be active here, since it hadn't existed in the provider.
-                providers.dig(path).set_link(provider);
-            }
+            self.write_value(path, report).err()
+        });
+        if let Some(err) = err {
+            Err(err.into())
+        } else {
+            Ok(())
         }
-        Ok(())
     }
 }
 

@@ -15,7 +15,9 @@ readme = "README.md"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
+anyhow = "1.0.35"
 collectd-plugin = "0.13.0"
+rayon = "1.5.0"
 rill = "0.5.1"
 
 [lib]

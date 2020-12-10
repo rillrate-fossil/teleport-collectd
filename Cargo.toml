@@ -16,6 +16,7 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 collectd-plugin = "0.13.0"
+rill = "0.5.1"
 
 [lib]
 crate-type = ["cdylib"]

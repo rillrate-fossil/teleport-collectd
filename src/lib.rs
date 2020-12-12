@@ -1,7 +1,7 @@
 use anyhow::Error;
 use collectd_plugin::{
     collectd_plugin, ConfigItem, Plugin, PluginCapabilities, PluginManager, PluginRegistration,
-    Value, ValueList, ValueReport,
+    ValueList, ValueReport,
 };
 use rayon::prelude::*;
 use rill::{
@@ -56,7 +56,8 @@ impl TeleportColelctd {
             let provider = providers.find(&path).and_then(Record::get_link);
             if let Some(provider) = provider {
                 if provider.is_active() {
-                    // TODO: Writed a value
+                    let value = report.value.to_string();
+                    provider.log(value);
                 }
                 return Ok(());
             }

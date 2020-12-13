@@ -68,7 +68,7 @@ impl PluginManager for TeleportColelctd {
 }
 
 impl TeleportColelctd {
-    fn write_value(&self, path: Path, report: &ValueReport) -> Result<(), Error> {
+    fn write_value(&self, path: Path, ts: &str, report: &ValueReport) -> Result<(), Error> {
         // Try to find an existent provider
         {
             let providers = self
@@ -79,7 +79,7 @@ impl TeleportColelctd {
             if let Some(provider) = provider {
                 if provider.is_active() {
                     let value = report.value.to_string();
-                    provider.log(value);
+                    provider.log(ts.to_string(), value);
                 }
                 return Ok(());
             }
@@ -109,7 +109,7 @@ impl Plugin for TeleportColelctd {
         // TODO: Replace unwrap to err
         let provider = loggers.get(&lvl).unwrap();
         if provider.is_active() {
-            provider.log(msg.to_string());
+            provider.log("<todo>".into(), msg.to_string());
         }
         Ok(())
     }
@@ -134,15 +134,16 @@ impl Plugin for TeleportColelctd {
             entries.push(value);
         }
         let basic_path = Path::from(entries);
+        let ts = list.time.to_string();
         let err;
         if list.values.len() == 1 {
             let report = list.values.get(0).unwrap();
-            err = self.write_value(basic_path, report).err();
+            err = self.write_value(basic_path, &ts, report).err();
         } else {
             err = list.values.par_iter().find_map_last(move |report| {
                 let name = EntryId::from(report.name);
                 let path = basic_path.concat(&[name]);
-                self.write_value(path, report).err()
+                self.write_value(path, &ts, report).err()
             });
         }
         if let Some(err) = err {

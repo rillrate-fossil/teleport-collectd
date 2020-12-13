@@ -108,18 +108,15 @@ impl Plugin for TeleportColelctd {
         } else {
             EntryId::from(list.type_)
         };
+        let basic_path = Path::from(vec![host, plugin, typ]);
         let err;
         if list.values.len() == 1 {
             let report = list.values.get(0).unwrap();
-            let path = Path::from(vec![host, plugin, typ]);
-            err = self.write_value(path, report).err();
+            err = self.write_value(basic_path, report).err();
         } else {
             err = list.values.par_iter().find_map_last(move |report| {
-                let host = host.clone();
-                let plugin = plugin.clone();
-                let typ = typ.clone();
                 let name = EntryId::from(report.name);
-                let path = Path::from(vec![host, plugin, typ, name]);
+                let path = basic_path.concat(&[name]);
                 self.write_value(path, report).err()
             });
         }

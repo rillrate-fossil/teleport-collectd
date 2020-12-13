@@ -96,14 +96,33 @@ impl Plugin for TeleportColelctd {
 
     fn write_values(&self, list: ValueList<'_>) -> Result<(), Box<dyn error::Error>> {
         let host = EntryId::from(list.host);
-        let plugin = EntryId::from(list.plugin);
-        let err = list.values.par_iter().find_map_last(move |report| {
-            let host = host.clone();
-            let plugin = plugin.clone();
-            let name = EntryId::from(report.name);
-            let path = Path::from(vec![host, plugin, name]);
-            self.write_value(path, report).err()
-        });
+        let plugin = if let Some(plugin_instance) = list.plugin_instance {
+            let plugin = format!("{}-{}", list.plugin, plugin_instance);
+            plugin.into()
+        } else {
+            EntryId::from(list.plugin)
+        };
+        let typ = if let Some(type_instance) = list.type_instance {
+            let typ = format!("{}-{}", list.type_, type_instance);
+            typ.into()
+        } else {
+            EntryId::from(list.type_)
+        };
+        let err;
+        if list.values.len() == 1 {
+            let report = list.values.get(0).unwrap();
+            let path = Path::from(vec![host, plugin, typ]);
+            err = self.write_value(path, report).err();
+        } else {
+            err = list.values.par_iter().find_map_last(move |report| {
+                let host = host.clone();
+                let plugin = plugin.clone();
+                let typ = typ.clone();
+                let name = EntryId::from(report.name);
+                let path = Path::from(vec![host, plugin, typ, name]);
+                self.write_value(path, report).err()
+            });
+        }
         if let Some(err) = err {
             log::error!("Can't write values: {}", err);
             Err(err.into())

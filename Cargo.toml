@@ -17,6 +17,7 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 anyhow = "1.0.35"
 collectd-plugin = "0.13.0"
+log = "0.4.11"
 rayon = "1.5.0"
 rill = "0.5.1"
 

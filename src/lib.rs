@@ -1,7 +1,7 @@
 use anyhow::Error;
 use collectd_plugin::{
-    collectd_plugin, CollectdLoggerBuilder, ConfigItem, Plugin, PluginCapabilities, PluginManager,
-    PluginManagerCapabilities, PluginRegistration, ValueList, ValueReport,
+    collectd_plugin, CollectdLoggerBuilder, ConfigItem, LogLevel, Plugin, PluginCapabilities,
+    PluginManager, PluginManagerCapabilities, PluginRegistration, ValueList, ValueReport,
 };
 use log::LevelFilter;
 use rayon::prelude::*;
@@ -89,9 +89,51 @@ impl TeleportColelctd {
     }
 }
 
+fn log_level_to_entry_id(lvl: LogLevel) -> EntryId {
+    let s = match lvl {
+        LogLevel::Error => "error",
+        LogLevel::Warning => "warning",
+        LogLevel::Notice => "notice",
+        LogLevel::Info => "info",
+        LogLevel::Debug => "debug",
+    };
+    EntryId::from(s)
+}
+
 impl Plugin for TeleportColelctd {
     fn capabilities(&self) -> PluginCapabilities {
-        PluginCapabilities::WRITE
+        PluginCapabilities::WRITE & PluginCapabilities::LOG
+    }
+
+    fn log(&self, lvl: LogLevel, msg: &str) -> Result<(), Box<dyn error::Error>> {
+        let log = EntryId::from("log");
+        let level = log_level_to_entry_id(lvl);
+        let path = Path::from(vec![log, level]);
+        // TODO: DRY! The code below duplicates the code of `write_value` func
+        {
+            let providers = self
+                .providers
+                .read()
+                .map_err(|e| Error::msg(e.to_string()))?;
+            let provider = providers.find(&path).and_then(Record::get_link);
+            if let Some(provider) = provider {
+                if provider.is_active() {
+                    provider.log(msg.to_string());
+                }
+                return Ok(());
+            }
+        }
+        {
+            log::info!("Creating a new log provider for: {}", path);
+            let mut providers = self
+                .providers
+                .write()
+                .map_err(|e| Error::msg(e.to_string()))?;
+            let provider = LogProvider::new(path.clone());
+            // It can't be active here, since it hadn't existed in the provider.
+            providers.dig(path).set_link(provider);
+        }
+        Ok(())
     }
 
     fn write_values(&self, list: ValueList<'_>) -> Result<(), Box<dyn error::Error>> {

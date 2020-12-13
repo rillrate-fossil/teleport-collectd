@@ -96,19 +96,24 @@ impl Plugin for TeleportColelctd {
 
     fn write_values(&self, list: ValueList<'_>) -> Result<(), Box<dyn error::Error>> {
         let host = EntryId::from(list.host);
-        let plugin = if let Some(plugin_instance) = list.plugin_instance {
-            let plugin = format!("{}-{}", list.plugin, plugin_instance);
-            plugin.into()
-        } else {
-            EntryId::from(list.plugin)
-        };
-        let typ = if let Some(type_instance) = list.type_instance {
-            let typ = format!("{}-{}", list.type_, type_instance);
-            typ.into()
-        } else {
-            EntryId::from(list.type_)
-        };
-        let basic_path = Path::from(vec![host, plugin, typ]);
+        let plugin = EntryId::from(list.plugin);
+        let plugin_instance = list.plugin_instance.map(EntryId::from);
+        let typ = EntryId::from(list.type_);
+        let type_instance = list.type_instance.map(EntryId::from);
+        let mut entries = Vec::new();
+        entries.push(host);
+        let skip_type = typ == plugin;
+        entries.push(plugin);
+        if let Some(value) = plugin_instance {
+            entries.push(value);
+        }
+        if !skip_type {
+            entries.push(typ);
+        }
+        if let Some(value) = type_instance {
+            entries.push(value);
+        }
+        let basic_path = Path::from(entries);
         let err;
         if list.values.len() == 1 {
             let report = list.values.get(0).unwrap();

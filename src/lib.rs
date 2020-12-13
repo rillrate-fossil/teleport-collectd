@@ -11,17 +11,27 @@ use rill::{
     provider::LogProvider,
     EntryId,
 };
+use std::collections::HashMap;
 use std::error;
 use std::sync::RwLock;
+use strum::IntoEnumIterator;
 
 struct TeleportColelctd {
     providers: RwLock<Pathfinder<LogProvider>>,
+    loggers: RwLock<HashMap<LogLevel, LogProvider>>,
 }
 
-impl Default for TeleportColelctd {
-    fn default() -> Self {
+impl TeleportColelctd {
+    fn new() -> Self {
+        let mut loggers = HashMap::new();
+        for level in LogLevel::iter() {
+            let path = Path::from(vec![EntryId::from("log"), EntryId::from(level.as_ref())]);
+            let logger = LogProvider::new(path);
+            loggers.insert(level, logger);
+        }
         Self {
             providers: RwLock::new(Pathfinder::new()),
+            loggers: RwLock::new(loggers),
         }
     }
 }
@@ -47,7 +57,7 @@ impl PluginManager for TeleportColelctd {
     fn plugins(
         _config: Option<&[ConfigItem<'_>]>,
     ) -> Result<PluginRegistration, Box<dyn error::Error>> {
-        let plugin = Self::default();
+        let plugin = Self::new();
         Ok(PluginRegistration::Single(Box::new(plugin)))
     }
 
@@ -89,49 +99,17 @@ impl TeleportColelctd {
     }
 }
 
-fn log_level_to_entry_id(lvl: LogLevel) -> EntryId {
-    let s = match lvl {
-        LogLevel::Error => "error",
-        LogLevel::Warning => "warning",
-        LogLevel::Notice => "notice",
-        LogLevel::Info => "info",
-        LogLevel::Debug => "debug",
-    };
-    EntryId::from(s)
-}
-
 impl Plugin for TeleportColelctd {
     fn capabilities(&self) -> PluginCapabilities {
         PluginCapabilities::WRITE & PluginCapabilities::LOG
     }
 
     fn log(&self, lvl: LogLevel, msg: &str) -> Result<(), Box<dyn error::Error>> {
-        let log = EntryId::from("log");
-        let level = log_level_to_entry_id(lvl);
-        let path = Path::from(vec![log, level]);
-        // TODO: DRY! The code below duplicates the code of `write_value` func
-        {
-            let providers = self
-                .providers
-                .read()
-                .map_err(|e| Error::msg(e.to_string()))?;
-            let provider = providers.find(&path).and_then(Record::get_link);
-            if let Some(provider) = provider {
-                if provider.is_active() {
-                    provider.log(msg.to_string());
-                }
-                return Ok(());
-            }
-        }
-        {
-            log::info!("Creating a new log provider for: {}", path);
-            let mut providers = self
-                .providers
-                .write()
-                .map_err(|e| Error::msg(e.to_string()))?;
-            let provider = LogProvider::new(path.clone());
-            // It can't be active here, since it hadn't existed in the provider.
-            providers.dig(path).set_link(provider);
+        let loggers = self.loggers.read().map_err(|e| Error::msg(e.to_string()))?;
+        // TODO: Replace unwrap to err
+        let provider = loggers.get(&lvl).unwrap();
+        if provider.is_active() {
+            provider.log(msg.to_string());
         }
         Ok(())
     }

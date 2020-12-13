@@ -101,7 +101,7 @@ impl TeleportColelctd {
 
 impl Plugin for TeleportColelctd {
     fn capabilities(&self) -> PluginCapabilities {
-        PluginCapabilities::WRITE & PluginCapabilities::LOG
+        PluginCapabilities::WRITE | PluginCapabilities::LOG
     }
 
     fn log(&self, lvl: LogLevel, msg: &str) -> Result<(), Box<dyn error::Error>> {

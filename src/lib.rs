@@ -74,7 +74,8 @@ impl TeleportColelctd {
             if let Some(provider) = provider {
                 if provider.is_active() {
                     let value = report.value.to_string();
-                    provider.log(ts.to_string(), value);
+                    // TODO: Convert ts to `SystemTime`
+                    provider.log(value, None);
                 }
                 return Ok(());
             }
@@ -104,7 +105,7 @@ impl Plugin for TeleportColelctd {
         // TODO: Replace unwrap to err
         let provider = loggers.get(&lvl).unwrap();
         if provider.is_active() {
-            provider.log("<todo>".into(), msg.to_string());
+            provider.log(msg.to_string(), None);
         }
         Ok(())
     }

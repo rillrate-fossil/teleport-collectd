@@ -5,12 +5,7 @@ use collectd_plugin::{
 };
 use log::LevelFilter;
 use rayon::prelude::*;
-use rill::{
-    pathfinder::{Pathfinder, Record},
-    protocol::Path,
-    provider::LogProvider,
-    EntryId,
-};
+use rill::prelude::{EntryId, LogProvider, Path, Pathfinder, Record};
 use std::collections::HashMap;
 use std::error;
 use std::sync::RwLock;

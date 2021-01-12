@@ -1,18 +1,18 @@
 [package]
 name = "teleport-collectd"
-version = "0.1.0"
+version = "0.2.0"
 authors = [
     "Denis Kolodin <deniskolodin@gmail.com>",
     "overfloat <rillrate@gmail.com>",
 ]
 edition = "2018"
-repository = "https://github.com/rate-technology/rill"
-homepage = "https://github.com/rate-technology/rill"
-description = "Dynamic logging and tracing system"
-categories = ["development-tools::debugging"]
-keywords = ["logging"]
+repository = "https://github.com/rate-technology/teleport-collectd"
+homepage = "https://github.com/rate-technology/teleport-collectd"
+license = "MIT/Apache-2.0"
 readme = "README.md"
-license = "MIT OR Apache-2.0"
+keywords = ["logging"]
+categories = ["development-tools::debugging"]
+description = "RillRate plugin for collectd"
 
 [dependencies]
 anyhow = "1.0.38"

@@ -6,15 +6,15 @@ use collectd_plugin::{
 use log::LevelFilter;
 use once_cell::sync::Lazy;
 use rayon::prelude::*;
-use rill::prelude::{LogProvider, Rill};
-use rill_protocol::pathfinder::{Pathfinder, Record};
-use rill_protocol::provider::{EntryId, Path};
+use rillrate::protocol::pathfinder::{Pathfinder, Record};
+use rillrate::protocol::provider::{EntryId, Path};
+use rillrate::{LogProvider, RillRate};
 use std::collections::HashMap;
 use std::error;
 use std::sync::{Mutex, RwLock};
 use strum::IntoEnumIterator;
 
-static RILL: Lazy<Mutex<Option<Rill>>> = Lazy::new(|| Mutex::new(None));
+static RILLRATE: Lazy<Mutex<Option<RillRate>>> = Lazy::new(|| Mutex::new(None));
 
 struct TeleportColelctd {
     providers: RwLock<Pathfinder<LogProvider>>,
@@ -50,8 +50,10 @@ impl PluginManager for TeleportColelctd {
             .prefix_plugin::<Self>()
             .filter_level(LevelFilter::Info)
             .try_init()?;
-        let rill = Rill::install("teleport-collectd")?;
-        *RILL.lock()? = Some(rill);
+        // TODO: But use `from_config` instead
+        // TODO: And prepare that config
+        let rillrate = RillRate::from_env("teleport-collectd")?;
+        *RILLRATE.lock()? = Some(rillrate);
         Ok(())
     }
 
@@ -63,7 +65,7 @@ impl PluginManager for TeleportColelctd {
     }
 
     fn shutdown() -> Result<(), Box<dyn error::Error>> {
-        RILL.lock()?.take();
+        RILLRATE.lock()?.take();
         Ok(())
     }
 }

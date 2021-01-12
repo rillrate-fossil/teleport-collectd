@@ -4,12 +4,17 @@ use collectd_plugin::{
     PluginManager, PluginManagerCapabilities, PluginRegistration, ValueList, ValueReport,
 };
 use log::LevelFilter;
+use once_cell::sync::Lazy;
 use rayon::prelude::*;
-use rill::prelude::{EntryId, LogProvider, Path, Pathfinder, Record};
+use rill::prelude::{LogProvider, Rill};
+use rill_protocol::pathfinder::{Pathfinder, Record};
+use rill_protocol::provider::{EntryId, Path};
 use std::collections::HashMap;
 use std::error;
-use std::sync::RwLock;
+use std::sync::{Mutex, RwLock};
 use strum::IntoEnumIterator;
+
+static RILL: Lazy<Mutex<Option<Rill>>> = Lazy::new(|| Mutex::new(None));
 
 struct TeleportColelctd {
     providers: RwLock<Pathfinder<LogProvider>>,
@@ -45,7 +50,8 @@ impl PluginManager for TeleportColelctd {
             .prefix_plugin::<Self>()
             .filter_level(LevelFilter::Info)
             .try_init()?;
-        rill::install("teleport-collectd")?;
+        let rill = Rill::install("teleport-collectd")?;
+        *RILL.lock()? = Some(rill);
         Ok(())
     }
 
@@ -57,13 +63,13 @@ impl PluginManager for TeleportColelctd {
     }
 
     fn shutdown() -> Result<(), Box<dyn error::Error>> {
-        rill::terminate()?;
+        RILL.lock()?.take();
         Ok(())
     }
 }
 
 impl TeleportColelctd {
-    fn write_value(&self, path: Path, ts: &str, report: &ValueReport) -> Result<(), Error> {
+    fn write_value(&self, path: Path, _ts: &str, report: &ValueReport) -> Result<(), Error> {
         // Try to find an existent provider
         {
             let providers = self

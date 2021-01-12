@@ -16,13 +16,16 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 anyhow = "1.0.38"
-collectd-plugin = "0.13.0"
 log = "0.4.13"
 once_cell = "1.5.2"
 rayon = "1.5.0"
-rill = "0.12.0"
-rill-protocol = "0.12.0"
+rill = "0.14.0"
+rill-protocol = "0.14.0"
 strum = "0.20.0"
+
+[dependencies.collectd-plugin]
+version = "0.13.1-pre"
+git = "ssh://git@github.com/rate-technology/collectd-rust-plugin"
 
 [lib]
 crate-type = ["cdylib"]

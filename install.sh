@@ -1,3 +1,4 @@
+COLLECTD_VERSION=5.7
 cargo build
 sudo systemctl stop collectd
 read -p "Press [Enter] to start collectd with the teleport plugin..."

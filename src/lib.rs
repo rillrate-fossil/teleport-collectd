@@ -8,7 +8,8 @@ use once_cell::sync::Lazy;
 use rayon::prelude::*;
 use rillrate::protocol::pathfinder::{Pathfinder, Record};
 use rillrate::protocol::provider::{EntryId, Path};
-use rillrate::{LogProvider, RillRate};
+use rillrate::rill::prelude::LogTracer;
+use rillrate::RillRate;
 use std::collections::HashMap;
 use std::error;
 use std::sync::{Mutex, RwLock};
@@ -17,8 +18,8 @@ use strum::IntoEnumIterator;
 static RILLRATE: Lazy<Mutex<Option<RillRate>>> = Lazy::new(|| Mutex::new(None));
 
 struct TeleportColelctd {
-    providers: RwLock<Pathfinder<LogProvider>>,
-    loggers: RwLock<HashMap<LogLevel, LogProvider>>,
+    tracers: RwLock<Pathfinder<LogTracer>>,
+    loggers: RwLock<HashMap<LogLevel, LogTracer>>,
 }
 
 impl TeleportColelctd {
@@ -26,11 +27,11 @@ impl TeleportColelctd {
         let mut loggers = HashMap::new();
         for level in LogLevel::iter() {
             let path = Path::from(vec![EntryId::from("log"), EntryId::from(level.as_ref())]);
-            let logger = LogProvider::new(path);
+            let logger = LogTracer::new(path, false);
             loggers.insert(level, logger);
         }
         Self {
-            providers: RwLock::new(Pathfinder::new()),
+            tracers: RwLock::new(Pathfinder::new()),
             loggers: RwLock::new(loggers),
         }
     }
@@ -72,32 +73,29 @@ impl PluginManager for TeleportColelctd {
 
 impl TeleportColelctd {
     fn write_value(&self, path: Path, _ts: &str, report: &ValueReport) -> Result<(), Error> {
-        // Try to find an existent provider
+        // Try to find an existent tracer
         {
-            let providers = self
-                .providers
-                .read()
-                .map_err(|e| Error::msg(e.to_string()))?;
-            let provider = providers.find(&path).and_then(Record::get_link);
-            if let Some(provider) = provider {
-                if provider.is_active() {
+            let tracers = self.tracers.read().map_err(|e| Error::msg(e.to_string()))?;
+            let tracer = tracers.find(&path).and_then(Record::get_link);
+            if let Some(tracer) = tracer {
+                if tracer.is_active() {
                     let value = report.value.to_string();
                     // TODO: Convert ts to `SystemTime`
-                    provider.log(value, None);
+                    tracer.log(value, None);
                 }
                 return Ok(());
             }
         }
-        // Creating a new provider
+        // Creating a new tracer
         {
-            log::info!("Creating a new provider for: {}", path);
-            let mut providers = self
-                .providers
+            log::info!("Creating a new tracer for: {}", path);
+            let mut tracers = self
+                .tracers
                 .write()
                 .map_err(|e| Error::msg(e.to_string()))?;
-            let provider = LogProvider::new(path.clone());
-            // It can't be active here, since it hadn't existed in the provider.
-            providers.dig(path).set_link(provider);
+            let tracer = LogTracer::new(path.clone(), true);
+            // It can't be active here, since it hadn't existed in the tracer.
+            tracers.dig(path).set_link(tracer);
         }
         Ok(())
     }
@@ -111,9 +109,9 @@ impl Plugin for TeleportColelctd {
     fn log(&self, lvl: LogLevel, msg: &str) -> Result<(), Box<dyn error::Error>> {
         let loggers = self.loggers.read().map_err(|e| Error::msg(e.to_string()))?;
         // TODO: Replace unwrap to err
-        let provider = loggers.get(&lvl).unwrap();
-        if provider.is_active() {
-            provider.log(msg.to_string(), None);
+        let tracer = loggers.get(&lvl).unwrap();
+        if tracer.is_active() {
+            tracer.log(msg.to_string(), None);
         }
         Ok(())
     }

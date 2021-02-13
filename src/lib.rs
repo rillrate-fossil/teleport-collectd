@@ -143,8 +143,7 @@ impl Plugin for TeleportColelctd {
             err = self.write_value(basic_path, &ts, report).err();
         } else {
             err = list.values.par_iter().find_map_last(move |report| {
-                let name = EntryId::from(report.name);
-                let path = basic_path.concat(&[name]);
+                let path = basic_path.concat(report.name);
                 self.write_value(path, &ts, report).err()
             });
         }
